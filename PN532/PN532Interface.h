@@ -50,6 +50,17 @@ public:
     *           <0      failed to read response
     */
     virtual int16_t readResponse(uint8_t buf[], uint8_t len, uint16_t timeout = 1000) = 0;
+
+    /**
+    * @brief    RAW write
+    */
+    virtual void RAW_writeCommand(const uint8_t *cmd, uint8_t cmdlen, uint8_t *ackbuf) = 0;
+
+    /**
+    * @brief    RAW read
+    */
+    virtual int16_t RAW_readResponse(uint8_t buf[], uint8_t len, uint16_t timeout = 1000) = 0;
+
 };
 
 #endif

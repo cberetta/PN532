@@ -1,6 +1,8 @@
 
-#include "PN532/PN532_SPI/PN532_SPI.h"
-#include "PN532/PN532/PN532_debug.h"
+//#include "PN532/PN532_SPI/PN532_SPI.h"
+//#include "PN532/PN532/PN532_debug.h"
+#include "PN532_SPI.h"
+#include "PN532_debug.h"
 #include "Arduino.h"
 
 #define STATUS_READ 2
@@ -224,3 +226,126 @@ int8_t PN532_SPI::readAckFrame()
 
     return memcmp(ackBuf, PN532_ACK, sizeof(PN532_ACK));
 }
+
+
+
+/* === RAW Functions === */
+/* === RAW Functions === */
+/* === RAW Functions === */
+
+
+
+int16_t PN532_SPI::RAW_readResponse(uint8_t buf[], uint8_t len, uint16_t timeout)
+{
+    uint16_t time = 0;
+    while (!isReady()) {
+        delay(1);
+        time++;
+        if (timeout > 0 && time > timeout) {
+            return PN532_TIMEOUT;
+        }
+    }
+
+    digitalWrite(_ss, LOW);
+    delay(1);
+
+    int16_t result;
+    int16_t bufptr=0;
+    do {
+
+        write(DATA_READ);
+
+        buf[bufptr] = read(); // PREAMBLE
+        bufptr++;
+        buf[bufptr] = read(); // STARTCODE1
+        bufptr++;
+        buf[bufptr] = read(); // STARTCODE2
+        bufptr++;
+        buf[bufptr] = read(); // LEN
+        bufptr++;
+        buf[bufptr] = read(); // LCS
+        bufptr++;
+        buf[bufptr] = read(); // TFI
+        bufptr++;
+
+        // LEN consider also DCS
+        if (buf[3] + 1 > len) {
+            DMSG("Message dump:");
+            for (uint8_t i=0; i<buf[3]-1; i++) {
+                DMSG_HEX(read());                 // dump message
+            }
+            DMSG("\nNot enough space\n");
+            read();
+            read();
+            result = PN532_NO_SPACE;  // not enough space
+            break;
+        }
+
+        // DATA
+        for (uint8_t i=0; i<buf[3]-1; i++) {
+            buf[bufptr] = read();
+            bufptr++;
+        }
+
+        buf[bufptr] = read(); // DCS
+        bufptr++;
+        buf[bufptr] = read(); // POSTAMBLE
+        bufptr++;
+
+    } while (0);
+
+    digitalWrite(_ss, HIGH);
+
+    return bufptr;
+}
+
+void PN532_SPI::RAW_readAckFrame(uint8_t *ackBuf)
+{
+
+    uint8_t timeout = PN532_ACK_WAIT_TIME;
+    while (!isReady()) {
+        delay(1);
+        timeout--;
+        if (0 == timeout) {
+            DMSG("Time out when waiting for ACK\n");
+            return -2;
+        }
+    }
+
+    digitalWrite(_ss, LOW);
+    delay(1);
+    write(DATA_READ);
+
+    for (uint8_t i = 0; i < 6; i++) {
+        ackBuf[i] = read();
+    }
+
+    digitalWrite(_ss, HIGH);
+
+}
+
+void PN532_SPI::RAW_writeCommand(const uint8_t *cmd, uint8_t cmdlen, uint8_t *ackbuf)
+{
+
+    command = cmd[5];   // TFI
+
+    digitalWrite(_ss, LOW);
+    delay(2);               // wake up PN532
+
+    write(DATA_WRITE);
+
+    for (uint8_t i = 0; i < cmdlen; i++) {
+        write(cmd[i]);
+
+        DMSG_HEX(cmd[i]);
+    }
+
+    digitalWrite(_ss, HIGH);
+
+    DMSG('\n');
+
+    // Read ACK
+    RAW_readAckFrame(ackbuf);
+
+}
+

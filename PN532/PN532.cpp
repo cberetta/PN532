@@ -7,8 +7,10 @@
 /**************************************************************************/
 
 #include "Arduino.h"
-#include "PN532/PN532/PN532.h"
-#include "PN532/PN532/PN532_debug.h"
+//#include "PN532/PN532/PN532.h"
+//#include "PN532/PN532/PN532_debug.h"
+#include "PN532.h"
+#include "PN532_debug.h"
 #include <string.h>
 
 #define HAL(func)   (_interface->func)
@@ -1411,3 +1413,57 @@ int8_t PN532::felica_Release()
 
   return 1;
 }
+
+
+/**************************************************************************/
+/*!
+    @brief  Send RAW command
+
+    part of this code was copied from the code written
+    for the libnfc arduino driver by
+    Christophe Duvernois <christophe.duvernois@gmail.com>
+*/
+/**************************************************************************/
+uint8_t PN532::sendRawCommandCheckAck(uint8_t *cmd, uint8_t cmdlen, uint16_t timeout = 2000)
+{
+    //const uint8_t PN532_ACK[] = {0, 0, 0xFF, 0, 0xFF, 0};
+    uint8_t ackbuf[6] = { 0 };
+
+    HAL(RAW_writeCommand)(cmd, cmdlen, ackbuf);
+
+    Serial.write(ackbuf, 6);
+
+    return 0;
+
+}
+
+/**************************************************************************/
+/*!
+    @brief  Read RAW command response and send it to serial
+
+    part of this code was copied from the code written
+    for the libnfc arduino driver by
+    Christophe Duvernois <christophe.duvernois@gmail.com>
+*/
+/**************************************************************************/
+void PN532::readRawCommandAnswer()
+{
+
+    // Timeout 1000 = 1 sec
+    uint8_t size = HAL(RAW_readResponse)(pn532_packetbuffer, sizeof(pn532_packetbuffer), 1000);
+
+    // don't know if this condition is usefull but I leave here
+    // as it should not create any problem
+    if ((pn532_packetbuffer[0] == 0x00) && (pn532_packetbuffer[1] == 0x00)) {
+        Serial.write(pn532_packetbuffer, size);
+    } else {
+        // hack this should never happen but sometime the first
+        // null byte is missing :(
+        // don't know why i don't receive the first 0x00
+        Serial.write((uint8_t)0x00);
+        Serial.write(pn532_packetbuffer, size - 1);
+    }
+
+    delay(5);
+}
+

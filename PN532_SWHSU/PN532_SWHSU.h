@@ -4,7 +4,8 @@
 
 #include <SoftwareSerial.h>
 
-#include "PN532/PN532/PN532Interface.h"
+//#include "PN532/PN532/PN532Interface.h"
+#include "PN532Interface.h"
 #include "Arduino.h"
 
 #define PN532_SWHSU_DEBUG

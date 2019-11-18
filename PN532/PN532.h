@@ -141,6 +141,10 @@ public:
     bool setPassiveActivationRetries(uint8_t maxRetries);
     bool setRFField(uint8_t autoRFCA, uint8_t rFOnOff);
 
+    // RAW functions
+    uint8_t sendRawCommandCheckAck(uint8_t *cmd, uint8_t cmdlen, uint16_t timeout = 2000);
+    void readRawCommandAnswer(void);
+
     /**
     * @brief    Init PN532 as a target
     * @param    timeout max time to wait, 0 means no timeout
