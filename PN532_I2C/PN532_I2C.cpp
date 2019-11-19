@@ -254,3 +254,154 @@ int8_t PN532_I2C::readAckFrame()
 
     return 0;
 }
+
+
+
+
+
+void PN532_I2C::RAW_writeCommand(const uint8_t *cmd, uint8_t cmdlen, uint8_t *ackbuf)
+{
+    _wire->beginTransmission(PN532_I2C_ADDRESS);
+
+    DMSG("\nRAW_write: ");
+
+    for (uint8_t i = 0; i < cmdlen; i++)
+    {
+        if (write(cmd[i]))
+        {
+            DMSG_HEX(cmd[i]);
+        }
+        else
+        {
+            DMSG("\nRAW_writeCommand - Too many data to send, I2C doesn't support such a big packet\n"); // I2C max packet: 32 bytes
+        }
+    }
+
+    _wire->endTransmission();
+
+    DMSG('\n');
+
+    // Read ACK
+    RAW_readAckFrame(ackbuf);
+
+}
+
+int16_t PN532_I2C::RAW_readResponse(uint8_t buf[], uint8_t len, uint16_t timeout)
+{
+    uint16_t time = 0;
+    int16_t bufptr = 0;
+
+    uint8_t length;
+
+    length = getResponseLength(buf, len, timeout);
+
+    DMSG("\nRAW_readResponse - Length:");
+    DMSG_HEX(length); // dump
+    DMSG('\n');
+
+    // [RDY] 00 00 FF LEN LCS (TFI PD0 ... PDn) DCS 00
+    do
+    {
+        if (_wire->requestFrom(PN532_I2C_ADDRESS, 6 + length + 2))
+        {
+            if (read() & 1)
+            {          // check first byte --- status
+                break; // PN532 is ready
+            }
+        }
+
+        delay(1);
+        time++;
+        if ((0 != timeout) && (time > timeout))
+        {
+            return -1;
+        }
+    } while (1);
+
+
+    buf[bufptr] = read(); // PREAMBLE
+    bufptr++;
+    buf[bufptr] = read(); // STARTCODE1
+    bufptr++;
+    buf[bufptr] = read(); // STARTCODE2
+    bufptr++;
+    buf[bufptr] = read(); // LEN
+    bufptr++;
+    buf[bufptr] = read(); // LCS
+    bufptr++;
+    buf[bufptr] = read(); // TFI
+    bufptr++;
+
+    // LEN consider also DCS
+    if (buf[3] + 1 > len) {
+        DMSG("Data dump:");
+        for (uint8_t i=0; i<buf[3]-1; i++) {
+            DMSG_HEX(read()); // dump
+        }
+        DMSG("\mNot enough space\n");
+        read();
+        read();
+        // result = PN532_NO_SPACE;  // not enough space
+    } else {
+        // DATA
+        for (uint8_t i=0; i<buf[3]-1; i++) {
+            buf[bufptr] = read();
+            bufptr++;
+        }
+
+        buf[bufptr] = read(); // DCS
+        bufptr++;
+        buf[bufptr] = read(); // POSTAMBLE
+        bufptr++;
+
+    }
+
+    DMSG("\nRAW_readResponse - Message dump:");
+    for (uint8_t i = 0; i < bufptr; i++) {
+        DMSG_HEX(buf[i]); // dump
+    }
+    DMSG('\n');
+
+    return bufptr;
+}
+
+void PN532_I2C::RAW_readAckFrame(uint8_t *ackBuf)
+{
+
+    DMSG("\nRAW_readAckFrame - Wait for ack at: ");
+    DMSG(millis());
+    DMSG('\n');
+
+    uint16_t time = 0;
+    do
+    {
+        if (_wire->requestFrom(PN532_I2C_ADDRESS, 6 + 1))
+        {
+            if (read() & 1)
+            {          // check first byte --- status
+                break; // PN532 is ready
+            }
+        }
+
+        delay(1);
+        time++;
+        if (time > PN532_ACK_WAIT_TIME)
+        {
+            DMSG("\nRAW_readAckFrame - Time out when waiting for ACK\n");
+            return PN532_TIMEOUT;
+        }
+    } while (1);
+
+    DMSG("\nRAW_readAckFrame - Ready at : ");
+    DMSG(millis());
+    DMSG('\n');
+
+    DMSG("\nRAW_readAckFrame - Ack dump:");
+    for (uint8_t i = 0; i < 6; i++)
+    {
+        ackBuf[i] = read();
+        DMSG_HEX(ackBuf[i]); // dump
+    }
+    DMSG('\n');
+
+}

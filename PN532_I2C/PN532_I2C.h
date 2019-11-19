@@ -19,6 +19,10 @@ public:
     virtual int8_t writeCommand(const uint8_t *header, uint8_t hlen, const uint8_t *body = 0, uint8_t blen = 0);
     int16_t readResponse(uint8_t buf[], uint8_t len, uint16_t timeout);
 
+    // RAW Functions
+    void RAW_writeCommand(const uint8_t *cmd, uint8_t cmdlen, uint8_t *ackbuf);
+    int16_t RAW_readResponse(uint8_t buf[], uint8_t len, uint16_t timeout);
+
 private:
     TwoWire *_wire;
     uint8_t command;
@@ -43,6 +47,10 @@ private:
         return _wire->receive();
 #endif
     }
+
+    // RAW Functions
+    void RAW_readAckFrame(uint8_t *ackBuf);
+
 };
 
 #endif
